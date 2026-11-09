@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  BIDDER
+  ADMIN
+}
+
+enum AuctionStatus {
+  DRAFT
+  UPCOMING
+  LIVE
+  CLOSED
+}
+
+enum LotStatus {
+  UPCOMING
+  LIVE
+  SOLD
+  PASSED // closed without meeting reserve / no bids
+  WITHDRAWN
+}
+
+enum ImageProvider {
+  CLOUDINARY
+  EXTERNAL
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+  country      String?
+  role         Role     @default(BIDDER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  bids      Bid[]
+  autoBids  AutoBid[]
+  watchlist Watchlist[]
+  leading   Lot[]       @relation("LotHighestBidder")
+}
+
+model Artist {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  born      Int?
+  died      Int?
+  country   String?
+  bio       String?
+  portrait  String?
+  createdAt DateTime @default(now())
+
+  lots Lot[]
+}
+
+model Auction {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  subtitle    String?
+  description String?
+  currency    String        @default("INR")
+  coverImage  String?
+  status      AuctionStatus @default(UPCOMING)
+  startsAt    DateTime
+  // Scheduled close of the first lot. Lots close in a staggered sequence after this.
+  endsAt             DateTime
+  lotIntervalSeconds Int      @default(60)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  lots Lot[]
+
+  @@index([status, startsAt])
+}
+
+model Lot {
+  id              String    @id @default(cuid())
+  auctionId       String
+  lotNumber       Int
+  title           String
+  artistId        String
+  year            String?
+  medium          String?
+  dimensions      String?
+  signature       String?
+  description     String?
+  provenance      String?
+  estimateLow     Int
+  estimateHigh    Int
+  startingBid     Int
+  reservePrice    Int? // hidden from bidders
+  currentBid      Int?
+  bidCount        Int       @default(0)
+  highestBidderId String?
+  status          LotStatus @default(UPCOMING)
+  startsAt        DateTime
+  endsAt          DateTime
+  extensionCount  Int       @default(0)
+  closedAt        DateTime?
+  // Optimistic-lock counter: bumped on every state change of the lot.
+  version         Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  auction       Auction     @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  artist        Artist      @relation(fields: [artistId], references: [id])
+  highestBidder User?       @relation("LotHighestBidder", fields: [highestBidderId], references: [id])
+  images        LotImage[]
+  bids          Bid[]
+  autoBids      AutoBid[]
+  watchers      Watchlist[]
+
+  @@unique([auctionId, lotNumber])
+  @@index([status, endsAt])
+  @@index([status, startsAt])
+}
+
+model LotImage {
+  id        String        @id @default(cuid())
+  lotId     String
+  provider  ImageProvider @default(CLOUDINARY)
+  publicId  String?
+  url       String
+  width     Int?
+  height    Int?
+  position  Int           @default(0)
+  alt       String?
+  createdAt DateTime      @default(now())
+
+  lot Lot @relation(fields: [lotId], references: [id], onDelete: Cascade)
+
+  @@index([lotId, position])
+}
+
+model Bid {
+  id        String   @id @default(cuid())
+  lotId     String
+  userId    String
+  amount    Int
+  // True when placed by the proxy (max-bid) engine on the bidder's behalf.
+  isProxy   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  lot  Lot  @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  // A lot can never record two bids at the same amount.
+  @@unique([lotId, amount])
+  @@index([lotId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model AutoBid {
+  id        String   @id @default(cuid())
+  lotId     String
+  userId    String
+  maxAmount Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lot  Lot  @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([lotId, userId])
+  @@index([lotId, maxAmount])
+}
+
+model Watchlist {
+  userId    String
+  lotId     String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lot  Lot  @relation(fields: [lotId], references: [id], onDelete: Cascade)
+
+  @@id([userId, lotId])
+}

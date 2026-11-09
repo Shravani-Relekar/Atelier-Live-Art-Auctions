@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Atelier — Architecture (HLD, ER, Schema, Flows)</title>
+<style>
+  :root {
+    --ink: #1b1814; --muted: #6b645c; --paper: #faf7f1; --card: #fffdf9;
+    --gold: #a8833e; --red: #b4232a; --green: #2f7a4b; --blue: #4a5a78; --line: #d9d1c3;
+  }
+  @page { size: A4 landscape; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 297mm; height: 210mm; padding: 11mm 13mm 13mm; display: flex; flex-direction: column;
+    page-break-after: always; break-after: page; overflow: hidden; position: relative; }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .hdr { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1.5px solid var(--ink); padding-bottom: 2.5mm; margin-bottom: 3.5mm; }
+  .hdr h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; font-size: 20pt; margin: 0; }
+  .hdr .tag { font-size: 8pt; letter-spacing: .22em; text-transform: uppercase; color: var(--gold); }
+  .sub { font-size: 9pt; color: var(--muted); margin: -1.5mm 0 2.5mm; }
+  .fig { flex: 1; min-height: 0; display: flex; }
+  .fig svg { width: 100%; height: 100%; }
+  .notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; font-size: 8.2pt; line-height: 1.35; color: #3a342d; margin-top: 2.5mm; }
+  .notes b { color: var(--ink); }
+  .foot { position: absolute; bottom: 4.5mm; left: 13mm; right: 13mm; display: flex; justify-content: space-between; font-size: 7pt; color: var(--muted); letter-spacing: .08em; }
+  svg text { font-family: "Segoe UI", Arial, sans-serif; }
+
+  /* cover */
+  .cover { background: var(--ink); color: var(--paper); justify-content: space-between; padding: 18mm 20mm; }
+  .cover .brand { font-family: Georgia, serif; font-size: 13pt; letter-spacing: .3em; color: #c9a96a; }
+  .cover h1 { font-family: Georgia, serif; font-weight: 400; font-size: 40pt; line-height: 1.05; margin: 0 0 4mm; }
+  .cover .lede { max-width: 160mm; font-size: 11pt; line-height: 1.5; color: #d8d0c2; }
+  .cover .cols { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14mm; }
+  .cover ol { margin: 0; padding-left: 5mm; font-size: 10.5pt; line-height: 1.75; }
+  .cover ol li::marker { color: #c9a96a; }
+  .cover .stack { font-size: 9pt; line-height: 1.6; color: #d8d0c2; }
+  .cover .stack b { color: var(--paper); font-weight: 600; }
+  .cover .meta { font-size: 8pt; letter-spacing: .15em; text-transform: uppercase; color: #8d857a; }
+  .rule { height: 1px; background: #4a443c; margin: 5mm 0; }
+
+  /* schema tables */
+  .schema { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; flex: 1; min-height: 0; align-content: start; }
+  .tbl { margin-bottom: 3.2mm; break-inside: avoid; }
+  .tbl h3 { font-family: Georgia, serif; font-weight: 500; font-size: 11.5pt; margin: 0 0 1mm; display: flex; justify-content: space-between; align-items: baseline; }
+  .tbl h3 small { font-family: "Segoe UI", Arial, sans-serif; font-size: 7pt; color: var(--muted); letter-spacing: .06em; }
+  table { width: 100%; border-collapse: collapse; font-size: 7.4pt; background: var(--card); }
+  th { text-align: left; background: var(--ink); color: var(--paper); font-weight: 600; padding: 1.1mm 1.6mm; font-size: 6.8pt; letter-spacing: .06em; text-transform: uppercase; }
+  td { padding: .75mm 1.6mm; border-bottom: .5px solid var(--line); vertical-align: top; }
+  td.c { font-family: Consolas, "Courier New", monospace; font-size: 7.4pt; white-space: nowrap; }
+  td.t { color: var(--blue); white-space: nowrap; font-family: Consolas, monospace; }
+  .k { display: inline-block; font-size: 6pt; font-weight: 700; padding: 0 1mm; border-radius: 1mm; margin-right: .6mm; color: #fff; }
+  .k.pk { background: var(--gold); } .k.fk { background: var(--blue); } .k.uk { background: var(--green); } .k.ix { background: #8d857a; }
+  .idx { font-size: 7pt; color: var(--muted); margin-top: .8mm; font-family: Consolas, monospace; }
+  .enum { font-size: 7.6pt; line-height: 1.6; background: var(--card); border: .5px solid var(--line); padding: 2mm 3mm; }
+  .enum b { font-family: Consolas, monospace; }
+</style>
+</head>
+<body>
+
+<!-- shared arrow markers -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1b1814" />
+    </marker>
+    <marker id="arrGold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#a8833e" />
+    </marker>
+    <marker id="arrRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b4232a" />
+    </marker>
+  </defs>
+</svg>
+
+<!-- 1. COVER -->
+<section class="page cover">
+  <div>
+    <div class="brand">ATELIER · AUCTIONS</div>
+    <div class="rule"></div>
+    <h1>System Architecture<br/>&amp; Data Design</h1>
+    <p class="lede">A real-time online painting auction platform: live bidding with strict transactional integrity, proxy bids, anti-sniping soft close, server-synchronised countdowns and a Cloudinary image pipeline with deep zoom.</p>
+  </div>
+  <div class="cols">
+    <ol>
+      <li>High-Level Design (HLD)</li>
+      <li>Entity-Relationship (ER) Diagram</li>
+      <li>Database Schema — identity, catalogue &amp; enums</li>
+      <li>Database Schema — lots, bids &amp; images</li>
+      <li>Flowchart — Bid placement (transactional engine)</li>
+      <li>Lot lifecycle state machine &amp; scheduler flow</li>
+      <li>Sequence — Live bid propagation</li>
+      <li>Sequence — Image upload &amp; clock sync</li>
+    </ol>
+    <div class="stack">
+      <b>Backend</b> Node.js 20 · Express 4 · TypeScript · Socket.io 4<br/>
+      <b>Data</b> PostgreSQL 16 · Prisma 5 (SERIALIZABLE tx, row locks)<br/>
+      <b>Frontend</b> React 18 · Vite · Tailwind · TanStack Query 5 · Framer Motion<br/>
+      <b>Auth</b> JWT in HttpOnly cookie · bcrypt · Zod validation · rate limits<br/>
+      <b>Media</b> Cloudinary (signed direct upload, f_auto/q_auto, CDN)<br/>
+      <b>Repo</b> npm workspaces monorepo: <i>/server</i> · <i>/client</i>
+    </div>
+  </div>
+  <div class="meta">Project documentation · Generated from source · See docs/PROJECT_WALKTHROUGH.md for the narrative</div>
+</section>
+
+<!-- 2. HLD -->
+<section class="page">
+  <div class="hdr"><h2>1 · High-Level Design</h2><span class="tag">System context &amp; components</span></div>
+  <div class="fig"><svg id="hld"></svg></div>
+  <div class="notes">
+    <div><b>Reads</b> go REST → route → Prisma → serializer (hides reserve price &amp; password hash). <b>Writes</b> (bids) run in one SERIALIZABLE transaction holding a row lock on the lot; events are broadcast only <i>after commit</i>.</div>
+    <div><b>Real time:</b> Socket.io rooms per lot, per auction and per user. One client-side bridge patches every TanStack Query cache entry containing the lot; stale events are dropped by <code>version</code>.</div>
+    <div><b>Images</b> go browser → Cloudinary directly with a server-issued signature; the API verifies the asset before attaching it. The database is the single source of truth; sockets are only a notification channel.</div>
+  </div>
+  <div class="foot"><span>ATELIER · ARCHITECTURE</span><span>2</span></div>
+</section>
+
+<!-- 3. ER -->
+<section class="page">
+  <div class="hdr"><h2>2 · Entity-Relationship Diagram</h2><span class="tag">8 entities · PostgreSQL</span></div>
+  <div class="fig"><svg id="er"></svg></div>
+  <div class="foot"><span>ATELIER · ARCHITECTURE</span><span>3</span></div>
+</section>
+
+<!-- 4. SCHEMA A -->
+<section class="page">
+  <div class="hdr"><h2>3 · Database Schema (1/2)</h2><span class="tag">Identity · catalogue · enums</span></div>
+  <div class="schema" id="schemaA"></div>
+  <div class="foot"><span>ATELIER · ARCHITECTURE</span><span>4</span></div>
+</section>
+
+<!-- 5. SCHEMA B -->
+<section class="page">
+  <div class="hdr"><h2>3 · Database Schema (2/2)</h2><span class="tag">Lots · bids · images</span></div>
+  <div class="schema" id="schemaB"></div>
+  <div class="foot"><span>ATELIER · ARCHITECTURE</span><span>5</span></div>
+</section>
+
+<!-- 6. BID FLOW -->
+<section class="page">
+  <div class="hdr"><h2>4 · Flowchart — Bid Placement</h2><span class="tag">server/src/services/bidding.ts</span></div>
+  <div class="fig"><svg id="bidflow"></svg></div>
+  <div class="foot"><span>ATELIER · ARCHITECTURE</span><span>6</span></div>
+</section>
+
+<!-- 7. LIFECYCLE -->
+<section class="page">
+  <div class="hdr"><h2>5 · Lifecycle &amp; Scheduler</h2><span class="tag">server/src/services/scheduler.ts</span></div>
+  <div class="fig"><svg id="life"></svg></div>
+  <div class="foot"><span>ATELIER · ARCHITECTURE</span><span>7</span></div>
+</section>
+
+<!-- 8. SEQ BID -->
+<section class="page">
+  <div class="hdr"><h2>6 · Sequence — Live Bid Propagation</h2><span class="tag">REST + WebSocket</span></div>
+  <div class="fig"><svg id="seqbid"></svg></div>
+  <div class="foot"><span>ATELIER · ARCHITECTURE</span><span>8</span></div>
+</section>
+
+<!-- 9. SEQ UPLOAD + CLOCK -->
+<section class="page">
+  <div class="hdr"><h2>7 · Sequence — Image Upload &amp; Clock Sync</h2><span class="tag">Cloudinary · NTP-style sync</span></div>
+  <div class="fig"><svg id="sequp"></svg></div>
+  <div class="foot"><span>ATELIER · ARCHITECTURE</span><span>9</span></div>
+</section>
+
+<script>
+const NS = "http://www.w3.org/2000/svg";
+const C = { ink: "#1b1814", muted: "#6b645c", paper: "#faf7f1", card: "#fffdf9", gold: "#a8833e", red: "#b4232a", green: "#2f7a4b", blue: "#4a5a78", line: "#d9d1c3" };
+const STY = {
+  process: { fill: C.card, stroke: C.ink },
+  decision: { fill: "#f6edda", stroke: C.gold },
+  error: { fill: "#fbecec", stroke: C.red },
+  ok: { fill: "#e7f3ea", stroke: C.green },
+  info: { fill: "#edf0f6", stroke: C.blue },
+  start: { fill: C.ink, stroke: C.ink, text: C.paper },
+  group: { fill: "#f3ede2", stroke: C.line },
+  state: { fill: C.card, stroke: C.ink },
+};
+
+function setup(id, w, h) { const s = document.getElementById(id); s.setAttribute("viewBox", `0 0 ${w} ${h}`); return s; }
+function el(p, tag, attrs, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  p.appendChild(e); return e;
+}
+/** Multi-line centred text. A line starting with "**" is bold; "~~" is muted/smaller. */
+function lines(p, cx, cy, arr, { size = 12, fill = C.ink, anchor = "middle", lh = 1.28 } = {}) {
+  const total = (arr.length - 1) * size * lh;
+  arr.forEach((t, i) => {
+    let weight = 400, f = fill, sz = size;
+    if (t.startsWith("**")) { weight = 700; t = t.slice(2); }
+    else if (t.startsWith("~~")) { t = t.slice(2); f = fill === C.ink ? C.muted : fill; sz = size * 0.88; }
+    el(p, "text", { x: cx, y: cy - total / 2 + i * size * lh + size * 0.36, "font-size": sz, "text-anchor": anchor, fill: f, "font-weight": weight }, t);
+  });
+}
+function node(s, kind, cx, cy, w, h, text, opts = {}) {
+  const st = STY[kind];
+  if (kind === "decision") {
+    el(s, "polygon", { points: `${cx},${cy - h / 2} ${cx + w / 2},${cy} ${cx},${cy + h / 2} ${cx - w / 2},${cy}`, fill: st.fill, stroke: st.stroke, "stroke-width": 1.5 });
+  } else {
+    const rx = opts.rx ?? (["start", "ok", "error"].includes(kind) ? Math.min(h / 2, 16) : 6);
+    el(s, "rect", { x: cx - w / 2, y: cy - h / 2, width: w, height: h, rx, fill: st.fill, stroke: st.stroke, "stroke-width": opts.sw ?? 1.5, ...(opts.dash ? { "stroke-dasharray": "6 4" } : {}) });
+  }
+  if (text) lines(s, cx, cy + (opts.dy || 0), text, { size: opts.size || 12, fill: st.text || C.ink });
+  return { cx, cy, w, h, l: cx - w / 2, r: cx + w / 2, t: cy - h / 2, b: cy + h / 2 };
+}
+function label(s, x, y, arr, { anchor = "start", size = 10.5, fill = C.muted, weight = 400 } = {}) {
+  arr.forEach((t, i) => el(s, "text", { x, y: y + i * size * 1.25, "font-size": size, "text-anchor": anchor, fill, "font-weight": weight,
+    stroke: C.paper, "stroke-width": 3.5, "paint-order": "stroke", "stroke-linejoin": "round" }, t));
+}
+function arrow(s, pts, { dashed, color = C.ink, both, marker, width = 1.4 } = {}) {
+  const m = marker || (color === C.gold ? "arrGold" : color === C.red ? "arrRed" : "arr");
+  el(s, "path", { d: "M" + pts.map((p) => p.join(",")).join(" L"), fill: "none", stroke: color, "stroke-width": width,
+    "marker-end": `url(#${m})`, ...(both ? { "marker-start": `url(#${m})` } : {}), ...(dashed ? { "stroke-dasharray": "5 4" } : {}) });
+}
+function title(s, x, y, t, { size = 13, anchor = "start", fill = C.ink } = {}) {
+  el(s, "text", { x, y, "font-size": size, "font-family": "Georgia, serif", "font-weight": 600, fill, "text-anchor": anchor }, t);
+}
+
+/* ======================= 1. HLD ======================= */
+(() => {
+  const s = setup("hld", 1120, 590);
+  // Client
+  node(s, "group", 135, 330, 240, 440, null, { rx: 10 });
+  title(s, 30, 132, "Browser · React SPA");
+  label(s, 30, 148, ["Vite · TypeScript · Tailwind"], { size: 10 });
+  const cl = [
+    ["**Pages", "~~Home · Catalogue · Lot · Account · Admin"],
+    ["**TanStack Query cache", "~~server state, refetch on focus"],
+    ["**Realtime bridge", "~~patches cache from socket events"],
+    ["**Socket.io client", "~~ref-counted rooms · reconnect"],
+    ["**Countdown", "~~server-synchronised clock"],
+    ["**Deep-zoom viewer", "~~progressive full-res loading"],
+  ];
+  cl.forEach((t, i) => node(s, "process", 135, 186 + i * 60, 210, 48, t, { size: 11 }));
+
+  // Server
+  node(s, "group", 550, 335, 460, 470, null, { rx: 10 });
+  title(s, 330, 120, "Node.js 20 · API server (single process)");
+  node(s, "process", 550, 160, 420, 50, ["**Express 4 · HTTP layer", "~~helmet · CORS · cookie-parser · rate-limit · Zod validate · JWT auth"], { size: 11 });
+  const routes = ["/auth", "/auctions", "/lots", "/artists", "/me", "/admin"];
+  routes.forEach((r, i) => node(s, "process", 340 + 32 + i * 71.2, 222, 64, 34, [r], { size: 10.5 }));
+  arrow(s, [[550, 185], [550, 203]]);
+  const bid = node(s, "info", 445, 300, 205, 92, ["**Bidding engine", "SERIALIZABLE transaction", "SELECT … FOR UPDATE", "proxy loop · soft close", "~~retry ≤5 on conflict"], { size: 10.5 });
+  const sch = node(s, "info", 655, 300, 205, 92, ["**Lifecycle scheduler (1 s)", "open due lots", "hammer-down → SOLD / PASSED", "sync auction status", "~~multi-instance safe"], { size: 10.5 });
+  arrow(s, [[445, 239], [445, 252]]); arrow(s, [[655, 239], [655, 252]]);
+  const sock = node(s, "process", 550, 412, 330, 56, ["**Socket.io server", "rooms: lot:* · auction:* · user:* · lobby", "~~broadcast only after commit · time:sync"], { size: 10.5 });
+  arrow(s, [[470, 346], [470, 384]]); arrow(s, [[630, 346], [630, 384]]);
+  const pr = node(s, "process", 550, 500, 420, 60, ["**Prisma ORM", "type-safe queries · interactive transactions · migrations", "~~serializers strip private fields (reserve, passwordHash)"], { size: 10.5 });
+  arrow(s, [[355, 346], [355, 470]]); arrow(s, [[745, 346], [745, 470]]);
+  label(s, 360, 438, ["SQL"], { size: 9.5 }); label(s, 740, 438, ["SQL"], { size: 9.5, anchor: "end" });
+
+  // Cloudinary
+  node(s, "ok", 975, 175, 230, 100, ["**Cloudinary", "storage · transformations", "f_auto · q_auto · dpr_auto", "~~global CDN delivery"], { size: 11, rx: 14 });
+  // Postgres cylinder
+  const px = 975, py = 470, pw = 200, ph = 130;
+  el(s, "path", { d: `M${px - pw / 2},${py - ph / 2 + 14} v${ph - 28} a${pw / 2},14 0 0 0 ${pw},0 v${-(ph - 28)}`, fill: "#e8e1d4", stroke: C.ink, "stroke-width": 1.5 });
+  el(s, "ellipse", { cx: px, cy: py - ph / 2 + 14, rx: pw / 2, ry: 14, fill: "#f1ebe0", stroke: C.ink, "stroke-width": 1.5 });
+  lines(s, px, py + 10, ["**PostgreSQL 16", "row-level locks", "UNIQUE(lotId, amount)", "~~8 tables · 4 enums"], { size: 11 });
+
+  // Edges
+  arrow(s, [[255, 170], [340, 170]]); label(s, 262, 158, ["REST /api"], { size: 9.5 });
+  label(s, 262, 186, ["JWT cookie"], { size: 9.5 });
+  arrow(s, [[255, 412], [385, 412]], { both: true, color: C.gold }); label(s, 262, 400, ["WebSocket"], { size: 9.5 });
+  label(s, 262, 428, ["events"], { size: 9.5 });
+  arrow(s, [[760, 500], [875, 485]]); label(s, 778, 478, ["SQL · locks"], { size: 9.5 });
+  arrow(s, [[760, 160], [860, 168]], { dashed: true }); label(s, 768, 150, ["sign · verify"], { size: 9.5 });
+  // Top lane: browser <-> Cloudinary directly
+  arrow(s, [[135, 110], [135, 62], [975, 62], [975, 125]], { both: true, color: C.green });
+  label(s, 420, 54, ["Direct signed upload  ↑   ·   CDN image delivery  ↓   (file bytes never pass through the API)"], { size: 10.5, fill: C.green });
+  // Legend
+  label(s, 865, 560, ["▬ gold = WebSocket   ▬ green = media   - - dashed = async"], { size: 9.5 });
+})();
+
+/* ======================= 2. ER ======================= */
+(() => {
+  const s = setup("er", 1120, 650);
+  function entity(x, y, w, name, fields) {
+    const rh = 15, hh = 26, h = hh + fields.length * rh + 6;
+    el(s, "rect", { x, y, width: w, height: h, rx: 4, fill: C.card, stroke: C.ink, "stroke-width": 1.4 });
+    el(s, "path", { d: `M${x},${y + hh} v${-hh + 4} a4,4 0 0 1 4,-4 h${w - 8} a4,4 0 0 1 4,4 v${hh - 4} z`, fill: C.ink });
+    el(s, "text", { x: x + 10, y: y + 17.5, "font-size": 13, "font-weight": 700, fill: C.paper, "font-family": "Georgia, serif" }, name);
+    fields.forEach(([key, col, type], i) => {
+      const fy = y + hh + 4 + i * rh + 11;
+      if (i % 2 === 1) el(s, "rect", { x: x + 1, y: fy - 11, width: w - 2, height: rh, fill: "#f6f1e8" });
+      if (key) el(s, "text", { x: x + 7, y: fy, "font-size": 8.5, "font-weight": 700, fill: key.includes("PK") ? C.gold : key.includes("FK") ? C.blue : C.green }, key);
+      el(s, "text", { x: x + 38, y: fy, "font-size": 10.5, fill: C.ink, "font-family": "Consolas, monospace" }, col);
+      el(s, "text", { x: x + w - 7, y: fy, "font-size": 9.5, fill: C.muted, "text-anchor": "end" }, type);
+    });
+    return { x, y, w, h, r: x + w, b: y + h };
+  }
+  const card = (pts, a, b, aPos, bPos) => {
+    arrow(s, pts, { marker: "none" });
+    label(s, aPos[0], aPos[1], [a], { size: 11, fill: C.gold, weight: 700 });
+    label(s, bPos[0], bPos[1], [b], { size: 11, fill: C.gold, weight: 700 });
+  };
+  entity(210, 40, 205, "Auction", [["PK", "id", "cuid"], ["UK", "slug", "text"], ["", "title", "text"], ["", "subtitle", "text?"], ["", "description", "text?"], ["", "currency", "INR"], ["", "coverImage", "text?"], ["", "status", "AuctionStatus"], ["", "startsAt", "timestamp"], ["", "endsAt", "timestamp"], ["", "lotIntervalSeconds", "int"], ["", "created/updatedAt", "timestamp"]]);
+  entity(455, 40, 215, "Lot", [["PK", "id", "cuid"], ["FK", "auctionId", "→ Auction"], ["FK", "artistId", "→ Artist"], ["FK", "highestBidderId", "→ User?"], ["", "lotNumber", "int"], ["", "title", "text"], ["", "year · medium", "text?"], ["", "dimensions", "text?"], ["", "signature", "text?"], ["", "description", "text?"], ["", "provenance", "text?"], ["", "estimateLow", "int"], ["", "estimateHigh", "int"], ["", "startingBid", "int"], ["", "reservePrice", "int? (hidden)"], ["", "currentBid", "int?"], ["", "bidCount", "int"], ["", "status", "LotStatus"], ["", "startsAt", "timestamp"], ["", "endsAt", "timestamp"], ["", "extensionCount", "int"], ["", "closedAt", "timestamp?"], ["", "version", "int"], ["", "created/updatedAt", "timestamp"]]);
+  entity(715, 40, 190, "Artist", [["PK", "id", "cuid"], ["UK", "slug", "text"], ["", "name", "text"], ["", "born", "int?"], ["", "died", "int?"], ["", "country", "text?"], ["", "bio", "text?"], ["", "portrait", "text?"], ["", "createdAt", "timestamp"]]);
+  entity(715, 240, 190, "LotImage", [["PK", "id", "cuid"], ["FK", "lotId", "→ Lot"], ["", "provider", "ImageProvider"], ["", "publicId", "text?"], ["", "url", "text"], ["", "width", "int?"], ["", "height", "int?"], ["", "position", "int"], ["", "alt", "text?"], ["", "createdAt", "timestamp"]]);
+  entity(20, 280, 195, "User", [["PK", "id", "cuid"], ["UK", "email", "text"], ["", "passwordHash", "bcrypt"], ["", "name", "text"], ["", "phone", "text?"], ["", "country", "text?"], ["", "role", "Role"], ["", "created/updatedAt", "timestamp"]]);
+  entity(225, 480, 195, "Bid", [["PK", "id", "cuid"], ["FK", "lotId", "→ Lot"], ["FK", "userId", "→ User"], ["", "amount", "int"], ["", "isProxy", "bool"], ["", "createdAt", "timestamp"]]);
+  entity(455, 480, 215, "AutoBid", [["PK", "id", "cuid"], ["FK", "lotId", "→ Lot"], ["FK", "userId", "→ User"], ["", "maxAmount", "int"], ["", "created/updatedAt", "timestamp"]]);
+  entity(715, 480, 190, "Watchlist", [["PK,FK", "userId", "→ User"], ["PK,FK", "lotId", "→ Lot"], ["", "createdAt", "timestamp"]]);
+
+  card([[415, 120], [455, 120]], "1", "N", [418, 114], [443, 114]);              // Auction-Lot
+  card([[715, 110], [670, 110]], "1", "N", [703, 104], [673, 104]);              // Artist-Lot
+  card([[670, 320], [715, 320]], "1", "N", [673, 314], [703, 314]);              // Lot-LotImage
+  card([[215, 345], [455, 345]], "0..1", "N", [220, 339], [440, 339]);           // User leads Lot
+  label(s, 270, 362, ["leads (highestBidderId)"], { size: 9.5 });
+  card([[490, 443], [490, 463], [322, 463], [322, 480]], "1", "N", [496, 456], [328, 476]);  // Lot-Bid
+  card([[575, 443], [575, 480]], "1", "N", [581, 456], [581, 476]);              // Lot-AutoBid
+  card([[640, 443], [640, 463], [810, 463], [810, 480]], "1", "N", [646, 456], [816, 476]);  // Lot-Watchlist
+  card([[110, 435], [110, 545], [225, 545]], "1", "N", [116, 450], [212, 540]);  // User-Bid
+  card([[70, 435], [70, 615], [562, 615], [562, 583]], "1", "N", [76, 450], [568, 598]); // User-AutoBid
+  card([[40, 435], [40, 635], [810, 635], [810, 554]], "1", "N", [46, 450], [816, 570]); // User-Watchlist
+
+  // Legend / constraints
+  node(s, "process", 1012, 210, 196, 330, null, { rx: 6 });
+  title(s, 922, 68, "Keys & constraints", { size: 12 });
+  const leg = [["PK", C.gold, "primary key (cuid)"], ["FK", C.blue, "foreign key"], ["UK", C.green, "unique"]];
+  leg.forEach(([k, c, t], i) => { el(s, "text", { x: 924, y: 92 + i * 17, "font-size": 9, "font-weight": 700, fill: c }, k); el(s, "text", { x: 950, y: 92 + i * 17, "font-size": 10, fill: C.ink }, t); });
+  const cons = ["UNIQUE Bid(lotId, amount)", "  ↳ no two bids at one price", "UNIQUE AutoBid(lotId, userId)", "UNIQUE Lot(auctionId, lotNumber)", "PK Watchlist(userId, lotId)", "INDEX Lot(status, endsAt)", "INDEX Lot(status, startsAt)", "INDEX Bid(lotId, createdAt)", "INDEX AutoBid(lotId, maxAmount)", "Cascade delete:", "  Auction → Lot → Image/Bid/…"];
+  cons.forEach((t, i) => el(s, "text", { x: 924, y: 152 + i * 16, "font-size": 9.5, fill: t.startsWith("  ") ? C.muted : C.ink, "font-family": "Consolas, monospace" }, t));
+  label(s, 922, 400, ["Money = integer units", "(no floating point)"], { size: 9.5, fill: C.ink });
+})();
+
+/* ======================= 3. SCHEMA TABLES ======================= */
+(() => {
+  const T = { s: "TEXT", i: "INTEGER", d: "TIMESTAMP(3)", b: "BOOLEAN" };
+  const tables = {
+    User: { note: "bidders & admins", rows: [
+      ["id", "pk", T.s, "cuid()"], ["email", "uk", T.s, "login identity"], ["passwordHash", "", T.s, "bcrypt, cost 12"], ["name", "", T.s, ""], ["phone", "", T.s + "?", ""], ["country", "", T.s + "?", ""], ["role", "", "Role", "default BIDDER"], ["createdAt", "", T.d, "default now()"], ["updatedAt", "", T.d, "@updatedAt"]] },
+    Artist: { note: "artist profiles", rows: [
+      ["id", "pk", T.s, "cuid()"], ["slug", "uk", T.s, "URL key"], ["name", "", T.s, ""], ["born", "", T.i + "?", ""], ["died", "", T.i + "?", ""], ["country", "", T.s + "?", ""], ["bio", "", T.s + "?", ""], ["portrait", "", T.s + "?", "image URL"], ["createdAt", "", T.d, "default now()"]] },
+    Auction: { note: "a sale / catalogue", idx: "INDEX (status, startsAt)", rows: [
+      ["id", "pk", T.s, "cuid()"], ["slug", "uk", T.s, "URL key"], ["title", "", T.s, ""], ["subtitle", "", T.s + "?", ""], ["description", "", T.s + "?", ""], ["currency", "", T.s, "default 'INR' (ISO 4217)"], ["coverImage", "", T.s + "?", ""], ["status", "", "AuctionStatus", "default UPCOMING"], ["startsAt", "", T.d, "bidding opens"], ["endsAt", "", T.d, "first lot closes"], ["lotIntervalSeconds", "", T.i, "default 60 · close stagger"], ["createdAt / updatedAt", "", T.d, ""]] },
+    Lot: { note: "one artwork in a sale", idx: "UNIQUE (auctionId, lotNumber) · INDEX (status, endsAt) · INDEX (status, startsAt)", rows: [
+      ["id", "pk", T.s, "cuid()"], ["auctionId", "fk", T.s, "→ Auction.id · ON DELETE CASCADE"], ["lotNumber", "", T.i, "1..n within auction"], ["title", "", T.s, ""], ["artistId", "fk", T.s, "→ Artist.id"], ["year", "", T.s + "?", ""], ["medium", "", T.s + "?", ""], ["dimensions", "", T.s + "?", ""], ["signature", "", T.s + "?", ""], ["description", "", T.s + "?", "catalogue note"], ["provenance", "", T.s + "?", ""], ["estimateLow", "", T.i, "whole currency units"], ["estimateHigh", "", T.i, ""], ["startingBid", "", T.i, ""], ["reservePrice", "", T.i + "?", "hidden from non-admins"], ["currentBid", "", T.i + "?", "denormalised live state"], ["bidCount", "", T.i, "default 0"], ["highestBidderId", "fk", T.s + "?", "→ User.id"], ["status", "", "LotStatus", "default UPCOMING"], ["startsAt", "", T.d, ""], ["endsAt", "", T.d, "moved by soft close"], ["extensionCount", "", T.i, "default 0"], ["closedAt", "", T.d + "?", ""], ["version", "", T.i, "optimistic lock counter"], ["createdAt / updatedAt", "", T.d, ""]] },
+    LotImage: { note: "artwork images", idx: "INDEX (lotId, position)", rows: [
+      ["id", "pk", T.s, "cuid()"], ["lotId", "fk", T.s, "→ Lot.id · CASCADE"], ["provider", "", "ImageProvider", "CLOUDINARY | EXTERNAL"], ["publicId", "", T.s + "?", "Cloudinary public_id"], ["url", "", T.s, "secure URL"], ["width", "", T.i + "?", "px"], ["height", "", T.i + "?", "px"], ["position", "", T.i, "gallery order"], ["alt", "", T.s + "?", ""], ["createdAt", "", T.d, ""]] },
+    Bid: { note: "append-only ledger", idx: "UNIQUE (lotId, amount) · INDEX (lotId, createdAt) · INDEX (userId, createdAt)", rows: [
+      ["id", "pk", T.s, "cuid()"], ["lotId", "fk", T.s, "→ Lot.id · CASCADE"], ["userId", "fk", T.s, "→ User.id"], ["amount", "", T.i, ""], ["isProxy", "", T.b, "placed by max-bid engine"], ["createdAt", "", T.d, "ordered 1 ms apart per tx"]] },
+    AutoBid: { note: "confidential maximum", idx: "UNIQUE (lotId, userId) · INDEX (lotId, maxAmount)", rows: [
+      ["id", "pk", T.s, "cuid()"], ["lotId", "fk", T.s, "→ Lot.id · CASCADE"], ["userId", "fk", T.s, "→ User.id"], ["maxAmount", "", T.i, "ceiling"], ["createdAt / updatedAt", "", T.d, "earlier wins ties"]] },
+    Watchlist: { note: "saved lots", idx: "PRIMARY KEY (userId, lotId)", rows: [
+      ["userId", "pk fk", T.s, "→ User.id · CASCADE"], ["lotId", "pk fk", T.s, "→ Lot.id · CASCADE"], ["createdAt", "", T.d, ""]] },
+  };
+  function render(name) {
+    const t = tables[name];
+    const keys = (k) => k.split(" ").filter(Boolean).map((x) => `<span class="k ${x}">${x.toUpperCase()}</span>`).join("");
+    return `<div class="tbl"><h3>${name}<small>${t.note.toUpperCase()}</small></h3><table>
+      <tr><th style="width:30%">Column</th><th style="width:17%">Type</th><th>Constraints / notes</th></tr>
+      ${t.rows.map(([c, k, ty, n]) => `<tr><td class="c">${keys(k)}${c}</td><td class="t">${ty}</td><td>${n}</td></tr>`).join("")}
+      </table>${t.idx ? `<div class="idx">${t.idx}</div>` : ""}</div>`;
+  }
+  const enums = `<div class="tbl"><h3>Enums<small>POSTGRES ENUM TYPES</small></h3><div class="enum">
+    <b>Role</b> — BIDDER · ADMIN<br/>
+    <b>AuctionStatus</b> — DRAFT → UPCOMING → LIVE → CLOSED<br/>
+    <b>LotStatus</b> — UPCOMING → LIVE → SOLD | PASSED · WITHDRAWN<br/>
+    <b>ImageProvider</b> — CLOUDINARY · EXTERNAL</div></div>
+    <div class="tbl"><h3>Conventions<small>APPLIES TO ALL TABLES</small></h3><div class="enum">
+    IDs are <b>cuid</b> strings (collision-resistant, URL-safe).<br/>
+    Money is stored as <b>INTEGER</b> whole currency units — no floating point.<br/>
+    Timestamps are <b>TIMESTAMP(3)</b> (millisecond precision, UTC).<br/>
+    Schema is managed by <b>Prisma Migrate</b> (server/prisma/migrations).</div></div>`;
+  document.getElementById("schemaA").innerHTML =
+    `<div>${render("User")}${render("Artist")}</div><div>${render("Auction")}${enums}</div>`;
+  document.getElementById("schemaB").innerHTML =
+    `<div>${render("Lot")}${render("Watchlist")}</div><div>${render("LotImage")}${render("Bid")}${render("AutoBid")}</div>`;
+})();
+
+/* ======================= 4. BID FLOWCHART ======================= */
+(() => {
+  const s = setup("bidflow", 1120, 640);
+  const A = 185, EA = 440, B = 715, EB = 975;
+  title(s, A, 14, "Phase 1 — validate & lock", { anchor: "middle", size: 12 });
+  title(s, B, 14, "Phase 2 — resolve, persist, broadcast", { anchor: "middle", size: 12 });
+
+  const n1 = node(s, "start", A, 48, 240, 42, ["POST /api/lots/:id/bids", "{ amount, maxAmount? }"], { size: 11 });
+  const n2 = node(s, "process", A, 112, 240, 40, ["requireAuth · rate limit (20/10s)", "Zod body validation"], { size: 10.5 });
+  const d1 = node(s, "decision", A, 182, 200, 58, ["Request valid?"], { size: 11 });
+  const n3 = node(s, "info", A, 260, 250, 48, ["**BEGIN (SERIALIZABLE)", "SELECT id FROM \"Lot\" … FOR UPDATE", "~~row lock: other bids on this lot wait"], { size: 10.5 });
+  const d2 = node(s, "decision", A, 346, 230, 66, ["Lot LIVE and", "startsAt ≤ now < endsAt?"], { size: 10.5 });
+  const d3 = node(s, "decision", A, 440, 210, 62, ["Caller already", "the leader?"], { size: 10.5 });
+  const d4 = node(s, "decision", A, 534, 230, 66, ["amount ≥ next minimum", "(increment ladder)?"], { size: 10.5 });
+
+  arrow(s, [[A, n1.b], [A, n2.t]]); arrow(s, [[A, n2.b], [A, d1.t]]);
+  arrow(s, [[A, d1.b], [A, n3.t]]); label(s, A + 6, d1.b + 13, ["yes"], { fill: C.green });
+  arrow(s, [[A, n3.b], [A, d2.t]]); arrow(s, [[A, d2.b], [A, d3.t]]); label(s, A + 6, d2.b + 13, ["yes"], { fill: C.green });
+  arrow(s, [[A, d3.b], [A, d4.t]]); label(s, A + 6, d3.b + 13, ["no"], { fill: C.ink });
+
+  const e1 = node(s, "error", EA, 182, 170, 40, ["400 / 401 / 429"], { size: 11 });
+  const e2 = node(s, "error", EA, 346, 170, 48, ["409 LOT_NOT_LIVE", "LOT_CLOSED · rollback"], { size: 10.5 });
+  const e3 = node(s, "ok", EA, 440, 170, 62, ["max given → upsert", "AutoBid → 200", "else 409 ALREADY_LEADING"], { size: 10 });
+  const e4 = node(s, "error", EA, 534, 170, 48, ["400 BID_TOO_LOW", "{ minimum } · rollback"], { size: 10.5 });
+  arrow(s, [[d1.r, 182], [e1.l, 182]], { color: C.red }); label(s, d1.r + 6, 176, ["no"], { fill: C.red });
+  arrow(s, [[d2.r, 346], [e2.l, 346]], { color: C.red }); label(s, d2.r + 4, 340, ["no"], { fill: C.red });
+  arrow(s, [[d3.r, 440], [e3.l, 440]], { color: C.green }); label(s, d3.r + 6, 434, ["yes"], { fill: C.green });
+  arrow(s, [[d4.r, 534], [e4.l, 534]], { color: C.red }); label(s, d4.r + 4, 528, ["no"], { fill: C.red });
+
+  // connector to phase 2
+  arrow(s, [[A, d4.b], [A, 610], [570, 610], [570, 48], [590, 48]]);
+  label(s, A + 6, d4.b + 13, ["yes"], { fill: C.green });
+
+  const m1 = node(s, "process", B, 48, 250, 40, ["Upsert AutoBid", "~~only if maxAmount supplied"], { size: 10.5 });
+  const m2 = node(s, "info", B, 116, 250, 62, ["**Proxy resolution loop", "competing maximums bid one", "increment apart; earlier wins ties"], { size: 10.5 });
+  const m3 = node(s, "process", B, 186, 250, 40, ["INSERT Bid rows (ordered)", "~~UNIQUE(lotId, amount)"], { size: 10.5 });
+  const d5 = node(s, "decision", B, 260, 230, 62, ["Bid inside final", "120 s (soft close)?"], { size: 10.5 });
+  const m4 = node(s, "process", B, 342, 250, 42, ["UPDATE Lot … WHERE version = v", "~~optimistic check · version + 1"], { size: 10.5 });
+  const m5 = node(s, "info", B, 404, 250, 34, ["**COMMIT"], { size: 11 });
+  const m6 = node(s, "process", B, 474, 270, 62, ["**Broadcast (after commit)", "lot:bid → lot & auction rooms", "user:outbid → displaced bidders"], { size: 10.5 });
+  const m7 = node(s, "ok", B, 552, 250, 44, ["201 Created", "{ lot, bids, leading, message }"], { size: 10.5 });
+  arrow(s, [[B, m1.b], [B, m2.t]]); arrow(s, [[B, m2.b], [B, m3.t]]); arrow(s, [[B, m3.b], [B, d5.t]]);
+  arrow(s, [[B, d5.b], [B, m4.t]]); label(s, B + 6, d5.b + 13, ["no"]);
+  arrow(s, [[B, m4.b], [B, m5.t]]); arrow(s, [[B, m5.b], [B, m6.t]]); arrow(s, [[B, m6.b], [B, m7.t]]);
+
+  const x1 = node(s, "process", EB, 260, 190, 44, ["endsAt = now + 120 s", "extensionCount + 1"], { size: 10.5 });
+  arrow(s, [[d5.r, 260], [x1.l, 260]]); label(s, d5.r + 6, 254, ["yes"], { fill: C.green });
+  arrow(s, [[EB, x1.b], [EB, 312], [B + 60, 312], [B + 60, m4.t]]);
+
+  const r1 = node(s, "error", EB, 404, 200, 92, ["**Serialization failure,", "deadlock, unique or", "version conflict", "→ rollback & retry ≤ 5×", "(jittered backoff)"], { size: 10 });
+  arrow(s, [[m4.r, 350], [EB - 30, 350], [EB - 30, r1.t]], { color: C.red, dashed: true });
+  arrow(s, [[m5.r, 404], [r1.l, 404]], { color: C.red, dashed: true });
+  const r2 = node(s, "error", EB, 500, 200, 40, ["still failing →", "409 BID_CONTENTION"], { size: 10.5 });
+  arrow(s, [[EB, r1.b], [EB, r2.t]], { color: C.red });
+  label(s, EB, 540, ["↺ retry restarts at BEGIN"], { anchor: "middle", fill: C.red, size: 10 });
+})();
+
+/* ======================= 5. LIFECYCLE ======================= */
+(() => {
+  const s = setup("life", 1120, 640);
+  title(s, 20, 24, "Lot state machine", { size: 13 });
+  el(s, "circle", { cx: 30, cy: 140, r: 8, fill: C.ink });
+  const st = (cx, cy, t, kind = "state", w = 118) => node(s, kind, cx, cy, w, 42, t, { size: 11.5, rx: 20 });
+  const up = st(130, 140, ["**UPCOMING"]);
+  const live = st(330, 140, ["**LIVE"], "info");
+  const sold = st(500, 70, ["**SOLD"], "ok", 96);
+  const passed = st(500, 210, ["**PASSED"], "error", 96);
+  const wd = st(330, 290, ["**WITHDRAWN"], "state", 130);
+  arrow(s, [[38, 140], [up.l, 140]]);
+  arrow(s, [[up.r, 140], [live.l, 140]]); label(s, up.r + 6, 128, ["startsAt"]); label(s, up.r + 6, 158, ["(scheduler)"]);
+  el(s, "path", { d: `M ${live.cx - 26} ${live.t} C ${live.cx - 40} 50, ${live.cx + 40} 50, ${live.cx + 26} ${live.t}`, fill: "none", stroke: C.gold, "stroke-width": 1.4, "marker-end": "url(#arrGold)" });
+  label(s, live.cx, 50, ["bid in final 120 s →", "endsAt extended (soft close)"], { anchor: "middle", fill: C.gold, size: 10 });
+  arrow(s, [[live.r, 130], [sold.l, 78]]); label(s, sold.cx, 108, ["endsAt passed &", "bid ≥ reserve"], { size: 10, anchor: "middle" });
+  arrow(s, [[live.r, 150], [passed.l, 202]]); label(s, sold.cx, 166, ["endsAt passed &", "no bid / reserve not met"], { size: 10, anchor: "middle" });
+  arrow(s, [[live.cx, live.b], [live.cx, wd.t]], { dashed: true }); label(s, live.cx + 6, 236, ["admin withdraws"], { size: 10 });
+  arrow(s, [[up.cx, up.b], [up.cx, 290], [wd.l, 290]], { dashed: true });
+
+  title(s, 20, 372, "Auction state machine", { size: 13 });
+  const as = ["DRAFT", "UPCOMING", "LIVE", "CLOSED"], ax = [70, 215, 360, 505];
+  const kinds = ["state", "state", "info", "ok"];
+  as.forEach((t, i) => node(s, kinds[i], ax[i], 420, 96, 40, ["**" + t], { size: 11, rx: 20 }));
+  const al = [["publish"], ["startsAt"], ["no open lots"]];
+  for (let i = 0; i < 3; i++) { arrow(s, [[ax[i] + 48, 420], [ax[i + 1] - 48, 420]]); label(s, (ax[i] + ax[i + 1]) / 2, 392, al[i], { anchor: "middle", size: 10 }); }
+  label(s, 20, 470, ["Admins may create an auction directly as UPCOMING (publish = true)."], { size: 10 });
+  label(s, 20, 486, ["Lots close in sequence: endsAt(n) = auction.endsAt + (n − 1) × lotIntervalSeconds."], { size: 10 });
+
+  node(s, "group", 290, 560, 540, 92, null, { rx: 8 });
+  lines(s, 290, 560, ["**Why it is safe with several server instances", "Opening uses one atomic UPDATE … RETURNING (one winner).", "Closing re-checks endsAt under a row lock (FOR UPDATE),", "so a lot extended by a last-second bid is never closed early."], { size: 10.5 });
+
+  // Scheduler flowchart
+  const X = 855;
+  title(s, X, 24, "Scheduler tick (every 1 s)", { size: 13, anchor: "middle" });
+  const f1 = node(s, "start", X, 62, 270, 40, ["setInterval 1 s", "~~skip if previous tick still running"], { size: 10.5 });
+  const f2 = node(s, "process", X, 126, 300, 48, ["UPDATE Lot SET status = 'LIVE'", "WHERE UPCOMING ∧ startsAt ≤ now() RETURNING id"], { size: 10 });
+  const f3 = node(s, "process", X, 186, 240, 32, ["emit lot:update"], { size: 10.5 });
+  const f4 = node(s, "process", X, 240, 300, 36, ["SELECT due lots: endsAt ≤ now (≤ 100)"], { size: 10.5 });
+  const f5 = node(s, "info", X, 298, 270, 40, ["for each lot: BEGIN", "SELECT … FOR UPDATE"], { size: 10.5 });
+  const g1 = node(s, "decision", X, 372, 210, 64, ["Still due?", "(endsAt ≤ now)"], { size: 10.5 });
+  const g2 = node(s, "decision", X, 462, 210, 64, ["Has bid and", "bid ≥ reserve?"], { size: 10.5 });
+  const sk = node(s, "process", 1045, 372, 130, 48, ["skip — extended", "by a late bid"], { size: 10 });
+  const so = node(s, "ok", 668, 462, 92, 36, ["SOLD"], { size: 11 });
+  const pa = node(s, "error", 1045, 462, 110, 36, ["PASSED"], { size: 11 });
+  const f6 = node(s, "process", X, 548, 300, 40, ["emit lot:closed (+ user:won to winner)"], { size: 10.5 });
+  const f7 = node(s, "process", X, 608, 300, 36, ["Sync auctions: UPCOMING → LIVE → CLOSED"], { size: 10.5 });
+  [[f1, f2], [f2, f3], [f3, f4], [f4, f5], [f5, g1]].forEach(([a, b]) => arrow(s, [[X, a.b], [X, b.t]]));
+  arrow(s, [[g1.r, 372], [sk.l, 372]]); label(s, g1.r + 4, 366, ["no"]);
+  arrow(s, [[X, g1.b], [X, g2.t]]); label(s, X + 6, g1.b + 13, ["yes"], { fill: C.green });
+  arrow(s, [[g2.l, 462], [so.r, 462]], { color: C.green }); label(s, g2.l - 4, 456, ["yes"], { anchor: "end", fill: C.green });
+  arrow(s, [[g2.r, 462], [pa.l, 462]], { color: C.red }); label(s, g2.r + 4, 456, ["no"], { fill: C.red });
+  arrow(s, [[so.cx, so.b], [so.cx, 548], [f6.l, 548]]);
+  arrow(s, [[pa.cx, pa.b], [pa.cx, 548], [f6.r, 548]]);
+  arrow(s, [[X, f6.b], [X, f7.t]]);
+})();
+
+/* ======================= sequence helper ======================= */
+function sequence(s, x0, x1, top, parts, msgs, step) {
+  const n = parts.length, gap = (x1 - x0) / (n - 1), xs = parts.map((_, i) => x0 + i * gap);
+  const bottom = top + 36 + msgs.length * step + 6;
+  parts.forEach((p, i) => {
+    el(s, "line", { x1: xs[i], y1: top + 20, x2: xs[i], y2: bottom, stroke: "#b9b0a2", "stroke-dasharray": "4 4" });
+    node(s, "start", xs[i], top, Math.min(gap - 14, 150), 38, p, { size: 10.5 });
+  });
+  msgs.forEach((m, k) => {
+    const y = top + 50 + k * step;
+    const [a, b, text, o = {}] = m;
+    el(s, "text", { x: Math.min(xs[a], xs[b]) - 10, y: y + 4, "font-size": 8.5, fill: "#a39a8c", "text-anchor": "end" }, String(k + 1));
+    if (a === b) {
+      node(s, o.kind || "info", o.cx ?? xs[a], y, o.w || 230, step - 8, text, { size: 9.8 });
+    } else {
+      const dir = b > a ? 1 : -1;
+      arrow(s, [[xs[a] + dir * 2, y + 6], [xs[b] - dir * 3, y + 6]], { dashed: o.dashed, color: o.color || C.ink });
+      label(s, (xs[a] + xs[b]) / 2, y + 1, text, { anchor: "middle", size: 10, fill: o.color || C.ink });
+    }
+  });
+}
+
+/* ======================= 6. SEQ BID ======================= */
+(() => {
+  const s = setup("seqbid", 1120, 650);
+  const P = [["**Bidder A", "~~browser"], ["**Express API", "~~/lots/:id/bids"], ["**Bidding engine", "~~services/bidding"], ["**PostgreSQL"], ["**Socket.io", "~~rooms"], ["**Bidder B", "~~browser (previous leader)"]];
+  const G = { color: C.gold };
+  sequence(s, 95, 1025, 26, P, [
+    [0, 1, ["POST { amount: 42,70,00,000 }"]],
+    [1, 2, ["placeBid(userId, lotId, amount)"]],
+    [2, 3, ["BEGIN SERIALIZABLE"]],
+    [2, 3, ["SELECT … FROM \"Lot\" FOR UPDATE"]],
+    [3, 3, ["concurrent bids on this lot queue here"], { kind: "decision", w: 240 }],
+    [2, 2, ["validate · ladder · proxy loop · soft close"], { w: 250 }],
+    [2, 3, ["INSERT Bid · UPDATE Lot WHERE version = v"]],
+    [2, 3, ["COMMIT"]],
+    [3, 2, ["ok (lock released)"], { dashed: true }],
+    [2, 4, ["emit lot:bid → lot & auction rooms"], G],
+    [2, 4, ["emit user:outbid → user:<B>"], G],
+    [4, 5, ["lot:bid { lot state, bids }"], G],
+    [4, 5, ["user:outbid → toast + red banner"], G],
+    [4, 0, ["lot:bid (echo, de-duplicated by id)"], G],
+    [2, 1, ["result { lot, bids, leading }"], { dashed: true }],
+    [1, 0, ["201 Created → cache updated immediately"], { dashed: true }],
+    [5, 5, ["patch cache · drop older versions"], { w: 190, cx: 1000, kind: "process" }],
+  ], 34);
+})();
+
+/* ======================= 7. SEQ UPLOAD + CLOCK ======================= */
+(() => {
+  const s = setup("sequp", 1120, 620);
+  title(s, 20, 18, "Signed direct image upload (admin)", { size: 12.5 });
+  sequence(s, 80, 680, 52, [["**Admin", "~~browser"], ["**Express API"], ["**Cloudinary"], ["**PostgreSQL"]], [
+    [0, 1, ["GET /admin/uploads/signature?lotId"]],
+    [1, 1, ["sign {timestamp, folder, eager} with API secret"], { w: 270 }],
+    [1, 0, ["{ signature, apiKey, timestamp, folder }"], { dashed: true }],
+    [0, 2, ["POST file + signed params (XHR, progress)"], { color: C.green }],
+    [2, 2, ["store original · eager 1600px + 600px thumb"], { w: 260, kind: "ok" }],
+    [2, 0, ["{ public_id, secure_url }"], { dashed: true, color: C.green }],
+    [0, 1, ["POST /admin/lots/:id/images { publicId }"]],
+    [1, 2, ["api.resource(publicId) — verify"]],
+    [2, 1, ["exists · in permitted folder · w × h"], { dashed: true }],
+    [1, 3, ["INSERT LotImage"]],
+    [1, 0, ["201 { image }"], { dashed: true }],
+    [2, 2, ["viewers: …/f_auto,q_auto,w_800/<publicId> via CDN"], { w: 290, kind: "ok" }],
+  ], 40);
+
+  el(s, "line", { x1: 785, y1: 10, x2: 785, y2: 600, stroke: C.line, "stroke-width": 1 });
+  title(s, 805, 18, "Server clock sync (countdowns)", { size: 12.5 });
+  sequence(s, 880, 1035, 52, [["**Browser"], ["**Socket.io"]], [
+    [0, 1, ["time:sync(t0)"]],
+    [1, 0, ["ack { serverTime }"], { dashed: true }],
+    [0, 0, ["rtt = t1 − t0"], { w: 200, cx: 957, kind: "process" }],
+    [0, 0, ["offset = serverTime − (t0 + rtt/2)"], { w: 200, cx: 957, kind: "process" }],
+    [0, 0, ["× 4 samples, keep lowest RTT"], { w: 200, cx: 957 }],
+    [0, 0, ["serverNow() = Date.now() + offset"], { w: 200, cx: 957, kind: "ok" }],
+    [0, 0, ["re-sync every 60 s & on reconnect"], { w: 200, cx: 957 }],
+  ], 40);
+  label(s, 810, 400, ["Countdowns are cosmetic: the server rejects"], { size: 10, fill: C.ink });
+  label(s, 810, 414, ["any bid at or after endsAt, whatever the"], { size: 10, fill: C.ink });
+  label(s, 810, 428, ["client clock shows."], { size: 10, fill: C.ink });
+  label(s, 810, 460, ["Deep zoom: shows the 1600 px rendition first;"], { size: 10, fill: C.ink });
+  label(s, 810, 474, ["past 160 % zoom the full-resolution original"], { size: 10, fill: C.ink });
+  label(s, 810, 488, ["is pre-loaded and swapped in seamlessly."], { size: 10, fill: C.ink });
+})();
+</script>
+</body>
+</html>

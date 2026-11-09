@@ -1,0 +1,29 @@
+{
+  "name": "atelier-bid",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Real-time online painting auction & bidding platform",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c yellow,cyan \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w server && npm run build -w client",
+    "start": "npm run start -w server",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w client",
+    "postinstall": "npm run prisma:generate -w server",
+    "prisma:generate": "npm run prisma:generate -w server",
+    "db:up": "docker compose up -d postgres",
+    "db:deploy": "npm run prisma:deploy -w server",
+    "db:migrate": "npm run prisma:migrate -w server",
+    "db:seed": "npm run seed -w server",
+    "db:reset": "npm run prisma:reset -w server"
+  },
+  "devDependencies": {
+    "concurrently": "9.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
